@@ -6,12 +6,25 @@
 
 const CATEGORIES = [
   { id: "kotlin",      label: "Kotlin.kt",       icon: "K" },
-  { id: "coroutines",  label: "Coroutines.kt",   icon: "C" },
-  { id: "di",          label: "DI.kt",           icon: "D" },
-  { id: "android",     label: "Android.kt",      icon: "A" },
-  { id: "arch",        label: "Architecture.kt", icon: "Ar" },
-  { id: "testing",     label: "Testing.kt",      icon: "T" },
+  { id: "java",        label: "Java.java",       icon: "J" },
+  { id: "android",     label: "AndroidSDK.kt",   icon: "A" },
+  { id: "viewxml",     label: "ViewXML.kt",      icon: "Vx" },
+  { id: "compose",     label: "Compose.kt",      icon: "Cp" },
+  { id: "coroutines",  label: "Coroutines.kt",   icon: "Co" },
+  { id: "flow",        label: "Flow.kt",         icon: "Fl" },
+  { id: "concurrency", label: "Concurrency.kt",  icon: "Cc" },
+  { id: "di",          label: "Dagger.kt",       icon: "D" },
+  { id: "hilt",        label: "Hilt.kt",         icon: "H" },
+  { id: "patterns",    label: "Patterns.kt",     icon: "P" },
+  { id: "arch",        label: "ArchPatterns.kt", icon: "Ar" },
+  { id: "cleancode",   label: "CleanCode.kt",    icon: "Cl" },
   { id: "algo",        label: "Algorithms.kt",   icon: "Al" },
+  { id: "room",        label: "Room.kt",         icon: "Rm" },
+  { id: "retrofit",    label: "Retrofit.kt",     icon: "Rt" },
+  { id: "git",         label: "Git.sh",          icon: "G" },
+  { id: "testing",     label: "Testing.kt",      icon: "T" },
+  { id: "sysdesign",   label: "SystemDesign.md", icon: "Sd" },
+  { id: "rxjava",      label: "RxJava.kt",       icon: "Rx" },
   { id: "lifehacks",   label: "Lifehacks.md",    icon: "L" },
   { id: "resume",      label: "Resume.md",       icon: "R" },
 ];
@@ -331,6 +344,782 @@ fun twoSum(nums: IntArray, target: Int): IntArray {
     }
     return intArrayOf()
 }`
+  },
+
+  // ---------------- JAVA ----------------
+  {
+    id: "j1", cat: "java", q: "Что такое GC Roots и типы ссылок (Strong/Soft/Weak/Phantom)?",
+    what: "GC Roots — это 'точки отсчёта', от которых сборщик мусора (Garbage Collector) строит граф достижимых объектов: статические поля, локальные переменные активных потоков, JNI-ссылки.",
+    key: "Объект жив, пока до него есть путь от GC Root по строгим (Strong) ссылкам. Soft-ссылки удаляются только при угрозе OutOfMemory. Weak-ссылки удаляются при любом проходе GC (пример: WeakReference на Activity в Handler). Phantom-ссылки нужны только чтобы узнать момент фактического удаления объекта из памяти (для точной очистки внешних ресурсов), сам объект через них даже прочитать нельзя.",
+    example: "Циклическая ссылка (A хранит B, B хранит A) не мешает GC — если ни на A, ни на B нет пути от GC Root, весь цикл соберётся целиком, в отличие от простого reference counting.",
+    code: `class Cache {
+    // Soft — удалится сборщиком только при риске OOM, подходит для кэша
+    private val cache = HashMap<String, SoftReference<Bitmap>>()
+
+    // Weak — удалится при любой сборке мусора, подходит для утечкоопасных ссылок
+    private val listeners = mutableListOf<WeakReference<Listener>>()
+}`
+  },
+  {
+    id: "j2", cat: "java", q: "Контракт equals() и hashCode() — почему нельзя переопределить только один?",
+    what: "equals() определяет логическое равенство объектов, hashCode() — число для быстрого распределения объекта по 'корзинам' (bucket) в хэш-коллекциях (HashMap, HashSet).",
+    key: "Контракт: если a.equals(b) == true, то ОБЯЗАТЕЛЬНО a.hashCode() == b.hashCode(). Обратное не гарантируется (коллизии допустимы). Если переопределить только equals — два 'равных' объекта могут попасть в разные bucket'ы, и HashMap.get() их не найдёт, потому что сначала ищет bucket по hashCode, и только потом сверяет через equals внутри него.",
+    example: "data class в Kotlin решает это автоматически, генерируя согласованную пару equals/hashCode — частая ошибка на собесе объяснить это без слова 'контракт'.",
+    code: `class BadKey(val id: Int) {
+    override fun equals(other: Any?) = other is BadKey && other.id == id
+    // hashCode НЕ переопределён — использует адрес объекта по умолчанию!
+}
+
+val map = HashMap<BadKey, String>()
+map[BadKey(1)] = "value"
+map[BadKey(1)] // null! Разные hashCode -> разные bucket'ы -> equals даже не проверяется`
+  },
+  {
+    id: "j3", cat: "java", q: "Почему в Kotlin нет checked exceptions, как в Java?",
+    what: "В Java checked exceptions (например, IOException) компилятор заставляет либо ловить, либо явно указывать в сигнатуре метода (throws). В Kotlin такого разделения нет — все исключения unchecked.",
+    key: "Плюс: не нужно засорять сигнатуры try/catch ради компилятора там, где реальной обработки нет (частая практика в Java — пустой catch, лишь бы скомпилировалось). Минус: компилятор больше не подскажет, что функция может бросить исключение — приходится либо читать документацию/тело, либо закладывать явную обработку через типы (sealed class Result<T>) вместо exceptions.",
+    example: "Современный подход в Kotlin — вместо exceptions для ожидаемых ошибок (нет сети, невалидные данные) использовать sealed-иерархию Result/Success/Error, оставляя exceptions только для реально исключительных ситуаций.",
+    code: `sealed interface ApiResult<out T> {
+    data class Success<T>(val data: T): ApiResult<T>
+    data class Error(val message: String): ApiResult<Nothing>
+}
+// Явно видно из сигнатуры, что может пойти не так — без throws в стиле Java`
+  },
+
+  // ---------------- ANDROID SDK (доп.) ----------------
+  {
+    id: "a4", cat: "android", q: "Почему у Bundle есть лимит на объём передаваемых данных (~1-2 МБ)?",
+    what: "Bundle используется не только внутри одного процесса — при передаче данных между Activity/процессами (и даже просто при пересоздании Activity системой) он сериализуется через транзакцию Binder — механизм межпроцессного взаимодействия (IPC) в Android.",
+    key: "У Binder-транзакций есть фиксированный буфер (около 1 МБ на процесс, точное число варьируется по версии Android), которым делятся ВСЕ одновременные транзакции приложения. Превышение лимита выбрасывает TransactionTooLargeException. Это ограничение самого механизма IPC, а не 'жадности' Bundle.",
+    example: "Частая ошибка — передавать Bitmap напрямую через Intent extras: даже одна фотография с камеры легко превышает лимит. Правильно — сохранить во временный файл и передать Uri.",
+    code: `// Плохо: может упасть с TransactionTooLargeException
+intent.putExtra("photo", bitmap)
+
+// Хорошо: передаём ссылку на файл, а не сами данные
+val uri = saveBitmapToCache(bitmap)
+intent.putExtra("photoUri", uri)`
+  },
+  {
+    id: "a5", cat: "android", q: "Чем отличаются launchMode: standard, singleTop, singleTask, singleInstance?",
+    what: "launchMode в манифесте управляет тем, как система создаёт новый экземпляр Activity и куда помещает его в стеке задач (back stack), когда её запускают через Intent.",
+    key: "standard — всегда создаёт новый экземпляр, даже поверх такого же. singleTop — не создаёт новый, если та же Activity уже на вершине стека (просто вызывает onNewIntent). singleTask — Activity существует в единственном экземпляре в рамках задачи, все Activity над ней в стеке уничтожаются при повторном открытии. singleInstance — как singleTask, но Activity живёт в отдельной, изолированной задаче, куда не может попасть никакая другая Activity.",
+    example: "singleTop типично используют для экрана поиска (повторный тап на уведомление с тем же контентом не должен плодить дубли экрана), singleTask — для точки входа вроде главного экрана.",
+    code: null
+  },
+  {
+    id: "a6", cat: "android", q: "Как система решает, какое приложение убить первым при нехватке памяти?",
+    what: "Android использует систему приоритетов процессов (process importance hierarchy) — чем 'важнее' процесс для пользователя прямо сейчас, тем позже его убьют при нехватке памяти (Low Memory Killer).",
+    key: "Порядок примерно такой (от самого защищённого к самому уязвимому): Foreground process (видимая Activity/Foreground Service) → Visible process (частично видимый, например за диалогом) → Service process → Background process (свёрнутое приложение) → Empty process. Foreground Service поднимает приоритет процесса именно потому, что переводит его в защищённую категорию.",
+    example: "Именно поэтому для геолокации в реальном времени (такси, доставка) используют Foreground Service с уведомлением — обычный Background Service система может убить в любой момент.",
+    code: null
+  },
+
+  // ---------------- ВЬЮ XML ----------------
+  {
+    id: "vx1", cat: "viewxml", q: "Как обновить только один элемент списка (например, чекбокс), не перерисовывая весь item?",
+    what: "DiffUtil по умолчанию сравнивает старый и новый item целиком и решает — перерисовать весь item или нет. Payloads — механизм частичного обновления, когда меняется только часть данных внутри item.",
+    key: "Если areContentsTheSame() возвращает false, DiffUtil может передать в getChangePayload() конкретный объект-подсказку (например, строку 'checkbox_changed'). В onBindViewHolder с параметром payloads адаптер проверяет: если payload не пуст — обновляет только нужное View (checkbox.isChecked = ...) без пересоздания и переизмерения всего item.",
+    example: "Без Payloads: изменение одного чекбокса в списке банковских карт перерисовывает всю сложную вёрстку item (иконки, текст, тени) — заметное проседание FPS на длинных списках.",
+    code: `override fun onBindViewHolder(holder: VH, position: Int, payloads: List<Any>) {
+    if (payloads.isNotEmpty() && payloads[0] == "checkbox_changed") {
+        holder.checkbox.isChecked = getItem(position).isChecked
+        return // не трогаем остальные вьюхи item'а
+    }
+    super.onBindViewHolder(holder, position, payloads)
+}`
+  },
+  {
+    id: "vx2", cat: "viewxml", q: "invalidate() vs requestLayout() — в чём разница?",
+    what: "Обе функции просят View обновиться, но запускают разные части цикла отрисовки (Measure → Layout → Draw).",
+    key: "invalidate() помечает View 'грязной' и запускает только повторный onDraw() — используется, когда изменился визуальный контент, но не размер/позиция (например, цвет фона). requestLayout() запускает полный цикл заново — onMeasure() и onLayout(), а затем обычно и onDraw() — нужен, когда изменился размер или положение View.",
+    example: "Важный нюанс с собеса: вызов invalidate() НЕ гарантирует немедленный вызов onDraw() — система может батчить несколько invalidate() в один кадр отрисовки.",
+    code: `// Изменился только цвет — достаточно invalidate()
+fun setHighlightColor(color: Int) {
+    this.color = color
+    invalidate() // просит только перерисовать
+}
+
+// Изменился текст, который может повлиять на размер — нужен requestLayout()
+fun setText(text: String) {
+    this.text = text
+    requestLayout() // просит пересчитать размер и позицию заново
+}`
+  },
+  {
+    id: "vx3", cat: "viewxml", q: "Почему ViewBinding нужно обнулять в onDestroyView() у Fragment, а у Activity — нет?",
+    what: "ViewBinding хранит ссылки на все View конкретной иерархии разметки (inflated View hierarchy).",
+    key: "У Fragment есть два разных жизненных цикла: жизненный цикл самого Fragment-объекта и жизненный цикл его View (View lifecycle) — View может быть уничтожена (onDestroyView) и создана заново (например, при возврате из backstack), пока сам Fragment остаётся жив в памяти. Если не обнулить binding в onDestroyView, он продолжает держать ссылку на уже уничтоженную иерархию View — это утечка памяти. У Activity View и сама Activity уничтожаются одновременно, поэтому отдельно обнулять нечего.",
+    example: "Частый паттерн — nullable backing property (_binding) + non-null геттер (binding), который бросает исключение при обращении вне жизненного цикла View.",
+    code: `private var _binding: FragmentDetailBinding? = null
+private val binding get() = _binding!!
+
+override fun onDestroyView() {
+    super.onDestroyView()
+    _binding = null // разрываем ссылку на уничтоженную View-иерархию
+}`
+  },
+
+  // ---------------- COMPOSE ----------------
+  {
+    id: "cx1", cat: "compose", q: "LaunchedEffect vs DisposableEffect vs SideEffect — когда что использовать?",
+    what: "Все три — side-effect API в Compose для выполнения кода вне обычного процесса рекомпозиции (recomposition — процесс пересчёта UI при изменении State).",
+    key: "LaunchedEffect(key) — запускает suspend-корутину при входе в композицию или при смене key, отменяет её при выходе. DisposableEffect(key) — для эффектов, которым нужна явная очистка (отписка от слушателя) через блок onDispose, не связан с корутинами. SideEffect — выполняется при КАЖДОЙ успешной рекомпозиции, без привязки к ключам и без возможности отмены — обычно для синхронизации Compose-состояния с не-Compose кодом (аналитика, старый View-based SDK).",
+    example: "Задача 'отследить момент появления баннера на экране для метрики' — это DisposableEffect (нужен onDispose при исчезновении), а 'загрузить данные при открытии экрана' — LaunchedEffect(Unit).",
+    code: `// Запуск и отмена корутины
+LaunchedEffect(userId) {
+    viewModel.loadUser(userId)
+}
+
+// Подписка + обязательная очистка
+DisposableEffect(lifecycleOwner) {
+    val observer = LifecycleEventObserver { _, event -> /* ... */ }
+    lifecycleOwner.lifecycle.addObserver(observer)
+    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+}`
+  },
+  {
+    id: "cx2", cat: "compose", q: "Что такое стабильность типов в Compose (@Stable/@Immutable) и почему List — нестабильный тип?",
+    what: "Compose пропускает рекомпозицию Composable-функции, если все её параметры 'стабильны' и не изменились между вызовами. Стабильность — это гарантия компилятору, что при equals()==true визуальное представление объекта не изменилось.",
+    key: "List — это интерфейс в Kotlin, и Compose не может гарантировать, что конкретная реализация за ним иммутабельна (кто-то может передать MutableList и незаметно поменять его содержимое без пересоздания ссылки) — поэтому компилятор Compose считает List нестабильным и на всякий случай перезапускает рекомпозицию при каждом изменении состояния родителя, даже если сам список не менялся. Аннотации @Immutable/@Stable — явное обещание разработчика компилятору, что тип ведёт себя стабильно.",
+    example: "Решения: обернуть список в @Immutable data class-обёртку, использовать kotlinx.collections.immutable (ImmutableList), либо настроить Stability Configuration File для сторонних классов, которые нельзя аннотировать напрямую.",
+    code: `@Immutable
+data class UiState(val items: List<Item>) // явно говорим Compose: доверяй этому классу
+
+@Composable
+fun ItemList(state: UiState) {
+    // Compose теперь может пропускать лишние рекомпозиции для state.items
+}`
+  },
+  {
+    id: "cx3", cat: "compose", q: "Зачем нужен derivedStateOf?",
+    what: "derivedStateOf создаёт State, значение которого вычисляется из других State, но рекомпозиция триггерится только когда РЕЗУЛЬТАТ вычисления реально изменился — а не каждый раз, когда меняется исходное состояние.",
+    key: "Без derivedStateOf: если завязать Composable на 'сырое' состояние скролла (например, firstVisibleItemIndex, которое меняется на каждый пиксель), рекомпозиция будет происходить сотни раз за один жест скролла. derivedStateOf пересчитывает производное значение (например, 'показывать кнопку scroll-to-top: true/false') и триггерит рекомпозицию только когда именно это булево значение меняется.",
+    example: "Классический пример — показ FAB 'наверх' в списке: сырой индекс скролла меняется постоянно, а булево 'показывать/скрывать кнопку' — редко.",
+    code: `val showButton by remember {
+    derivedStateOf { listState.firstVisibleItemIndex > 0 }
+} // Рекомпозиция только когда showButton реально меняет значение true/false`
+  },
+
+  // ---------------- FLOW ----------------
+  {
+    id: "fl1", cat: "flow", q: "StateFlow vs SharedFlow — в чём разница и когда каждый может 'подвести'?",
+    what: "Оба — горячие (hot) реализации Flow: существуют независимо от подписчиков и не пересоздают источник данных на каждую подписку.",
+    key: "StateFlow всегда хранит РОВНО одно последнее значение (обязателен initial value) и отдаёт его немедленно каждому новому подписчику — по сути, реактивный аналог переменной. SharedFlow гибче: можно настроить replay (сколько последних значений отдавать новому подписчику, по умолчанию 0) и не требует начального значения — подходит для одноразовых событий (показать Toast, навигация), которые не должны 'залипать' как состояние.",
+    example: "Классическая ловушка с собеса: если хранить событие 'показать Alert' в StateFlow, при повороте экрана (пересоздании подписчика) Alert покажется повторно, потому что StateFlow отдаёт своё последнее значение заново. Для одноразовых событий правильнее SharedFlow с replay = 0.",
+    code: `// StateFlow — для состояния экрана (нужно последнее значение всегда)
+val uiState: StateFlow<ScreenState> = _uiState.asStateFlow()
+
+// SharedFlow с replay=0 — для одноразовых событий (навигация, снекбар)
+private val _events = MutableSharedFlow<UiEvent>(replay = 0)
+val events = _events.asSharedFlow()`
+  },
+  {
+    id: "fl2", cat: "flow", q: "Чем flowOn концептуально отличается от observeOn в RxJava?",
+    what: "Оба меняют диспетчер/поток выполнения для цепочки операций, но действуют в разных направлениях относительно места вызова.",
+    key: "observeOn в RxJava меняет поток для ВСЕХ операторов НИЖЕ по цепочке (после вызова). flowOn в Kotlin Flow работает наоборот — меняет диспетчер для операторов ВЫШЕ по цепочке (до места вызова flowOn), а всё что идёт после него (включая collect) выполняется на диспетчере, откуда пришёл вызов.",
+    example: "Если в цепочке несколько flowOn с разными диспетчерами, каждый влияет только на участок цепочки выше себя и ниже предыдущего flowOn — это часто путает разработчиков с опытом в RxJava.",
+    code: `flow {
+    emit(loadFromNetwork()) // выполнится на IO
+}
+.flowOn(Dispatchers.IO) // диспетчер для всего, что выше
+.map { heavyCpuTransform(it) } // выполнится на диспетчере вызывающего (например, Main)
+.collect { updateUi(it) }`
+  },
+
+  // ---------------- КОНКУРЕНТНОСТЬ/МНОГОПОТОЧНОСТЬ ----------------
+  {
+    id: "conc1", cat: "concurrency", q: "Как работает synchronized 'под капотом' и что такое монитор?",
+    what: "synchronized — механизм JVM для взаимоисключающего доступа к общему ресурсу через объект-монитор (intrinsic lock), встроенный в каждый Java/Kotlin-объект.",
+    key: "Для synchronized-метода монитором выступает сам объект (this), для синхронизированного статического метода — объект класса (Class). Поток, зашедший в synchronized-блок, захватывает монитор; другие потоки, пытающиеся войти в ЛЮБОЙ synchronized-блок с тем же монитором, блокируются до освобождения. Важный нюанс: synchronized реентерабелен — поток, уже владеющий монитором, может повторно войти в другой synchronized-блок того же объекта без самоблокировки.",
+    example: "synchronized(lockObject) { ... } на конкретном объекте-мьютексе — более узкая и производительная синхронизация, чем synchronized на весь метод, если реально нужно защитить только часть логики.",
+    code: `class Counter {
+    private var count = 0
+    private val lock = Any()
+
+    fun increment() {
+        synchronized(lock) { // монитор — именно объект lock, а не this
+            count++
+        }
+    }
+}`
+  },
+  {
+    id: "conc2", cat: "concurrency", q: "Что именно даёт ключевое слово volatile?",
+    what: "volatile — модификатор поля, гарантирующий видимость (visibility) изменений между потоками и запрещающий переупорядочивание инструкций (instruction reordering) компилятором/процессором вокруг этого поля.",
+    key: "Без volatile поток может закэшировать значение переменной в своём процессорном кэше/регистре и не увидеть изменение, сделанное другим потоком (например, в бесконечном while-цикле проверки флага). volatile заставляет читать и писать значение напрямую из основной памяти (main memory), минуя локальный кэш потока. Важно: volatile НЕ даёт атомарности составных операций (например, count++ — это чтение+инкремент+запись, три отдельных шага, между которыми другой поток может вклиниться).",
+    example: "Именно поэтому volatile хорош для простого флага-сигнала (@Volatile var isRunning = true), но не годится для счётчика — для него нужны Atomic-типы или synchronized.",
+    code: `class Worker {
+    @Volatile private var isRunning = true // видимость гарантирована
+
+    fun stop() { isRunning = false } // из одного потока
+    fun run() {
+        while (isRunning) { /* ... */ } // из другого потока увидит изменение сразу
+    }
+}`
+  },
+  {
+    id: "conc3", cat: "concurrency", q: "Что такое Deadlock и как его избежать?",
+    what: "Deadlock (взаимная блокировка) — ситуация, когда два (или более) потока бесконечно ждут друг друга, каждый удерживая ресурс, нужный другому.",
+    key: "Классический сценарий: поток A захватил монитор объекта X и ждёт монитор объекта Y; поток B в это же время захватил монитор Y и ждёт монитор X. Ни один не может продолжить. Способы избежать: всегда захватывать несколько локов в едином согласованном порядке во всём приложении; использовать тайм-ауты при попытке захвата (tryLock с timeout); по возможности проектировать код без вложенных блокировок вообще.",
+    example: "На собесе часто просят смоделировать: два метода переводят деньги между счетами A→B и B→A одновременно, каждый сначала блокирует 'свой' счёт — классический рецепт deadlock, если не зафиксировать порядок захвата (например, всегда сначала счёт с меньшим ID).",
+    code: `// Плохо: порядок захвата зависит от направления перевода — риск deadlock
+fun transfer(from: Account, to: Account, amount: Int) {
+    synchronized(from) {
+        synchronized(to) { /* ... */ }
+    }
+}
+
+// Хорошо: всегда фиксированный порядок (например, по ID)
+fun transferSafe(a: Account, b: Account, amount: Int) {
+    val (first, second) = if (a.id < b.id) a to b else b to a
+    synchronized(first) {
+        synchronized(second) { /* ... */ }
+    }
+}`
+  },
+
+  // ---------------- DAGGER (доп.) ----------------
+  {
+    id: "d4", cat: "di", q: "Как через Dagger Multibindings очистить данные во всех репозиториях разом при логауте?",
+    what: "Multibindings (@IntoSet, @IntoMap) — механизм Dagger для сборки коллекции объектов от РАЗНЫХ модулей/классов под одним общим типом, без ручного перечисления всех реализаций в одном месте.",
+    key: "Каждый репозиторий реализует общий интерфейс (например, Clearable с методом clear()) и биндится в Set через @IntoSet. При логауте достаточно заинжектить Set<Clearable> и пройтись циклом — не нужно руками дописывать вызов clear() для каждого нового репозитория, который появится в будущем.",
+    example: "Это прямое применение Open/Closed принципа (O из SOLID) — добавление нового репозитория не требует изменения кода логаута, только реализации интерфейса и биндинга.",
+    code: `interface Clearable { fun clear() }
+
+@Module
+abstract class RepoModule {
+    @Binds @IntoSet
+    abstract fun bindUserRepoClearable(impl: UserRepositoryImpl): Clearable
+
+    @Binds @IntoSet
+    abstract fun bindCacheRepoClearable(impl: CacheRepositoryImpl): Clearable
+}
+
+class LogoutUseCase @Inject constructor(
+    private val clearables: Set<@JvmSuppressWildcards Clearable>
+) {
+    operator fun invoke() = clearables.forEach { it.clear() }
+}`
+  },
+
+  // ---------------- HILT ----------------
+  {
+    id: "hilt1", cat: "hilt", q: "Что делают @HiltAndroidApp и @AndroidEntryPoint и зачем нужны готовые компоненты Hilt?",
+    what: "Hilt — надстройка над Dagger, которая берёт на себя написание бойлерплейт-кода (шаблонного кода) для стандартных Android-компонентов.",
+    key: "@HiltAndroidApp на классе Application генерирует корневой DI-граф приложения. @AndroidEntryPoint на Activity/Fragment/Service подключает их к этому графу и позволяет использовать @Inject прямо в полях. Вместо ручного написания Component/Subcomponent под каждый экран (как в чистом Dagger), Hilt уже предоставляет готовые компоненты с правильной иерархией и временем жизни: SingletonComponent (на всё приложение), ActivityComponent, ViewModelComponent, FragmentComponent и т.д.",
+    example: "Цена удобства: на очень крупных проектах (100+ модулей, 25 тыс.+ строк в сабкомпонентах) кодогенерация Hilt может заметно замедлять сборку — поэтому банки с гигантскими монолитами (пример из разбора Дом.РФ) иногда сознательно остаются на чистом Dagger.",
+    code: `@HiltAndroidApp
+class MyApplication : Application()
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    @Inject lateinit var repository: WeatherRepository // Hilt сам заинжектит
+}
+
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val repository: WeatherRepository
+) : ViewModel()`
+  },
+
+  // ---------------- ПАТТЕРНЫ ----------------
+  {
+    id: "pat1", cat: "patterns", q: "Как правильно реализовать Singleton с двойной проверкой (Double-Checked Locking) и зачем там volatile?",
+    what: "Double-Checked Locking — оптимизация ленивой инициализации синглтона: проверяем, создан ли объект, ДО захвата дорогого synchronized-блока, и ещё раз ПОСЛЕ входа в него (на случай если другой поток создал объект, пока мы ждали лока).",
+    key: "Без volatile на поле экземпляра компилятор/процессор может переупорядочить инструкции создания объекта так, что другой поток увидит ссылку на ещё не до конца инициализированный объект (instruction reordering) — редкий, но реальный баг. volatile гарантирует, что присвоение ссылки станет видно другим потокам только ПОСЛЕ полного завершения конструктора.",
+    example: "В Kotlin эта проблема решается проще и безопаснее через object (компилятор сам гарантирует потокобезопасную однократную инициализацию) или through by lazy(LazyThreadSafetyMode.SYNCHRONIZED).",
+    code: `class Singleton private constructor() {
+    companion object {
+        @Volatile private var instance: Singleton? = null
+
+        fun getInstance(): Singleton =
+            instance ?: synchronized(this) {
+                instance ?: Singleton().also { instance = it }
+            }
+    }
+}
+// Или проще и безопаснее в Kotlin:
+object SingletonKt { /* компилятор сам обеспечивает потокобезопасность */ }`
+  },
+  {
+    id: "pat2", cat: "patterns", q: "Где в Android SDK встречаются классические паттерны Builder и Factory?",
+    what: "Builder — пошаговое конструирование сложного объекта с множеством опциональных параметров. Factory — делегирование создания объекта отдельному методу/классу вместо прямого вызова конструктора.",
+    key: "NotificationCompat.Builder — хрестоматийный Builder: у уведомления десятки опциональных полей (иконка, звук, действия), и через цепочку .setXxx() их удобно задавать выборочно вместо конструктора с 20 параметрами. ViewModelProvider.Factory — Factory: ViewModel часто нужно создавать с параметрами, которые Android-система не может передать сама при пересоздании экрана, поэтому создание делегируется фабрике.",
+    example: "На вопрос 'какие паттерны ты использовал недавно' почти всегда можно сослаться на ViewModelProvider.Factory или Retrofit.Builder — это не 'притянутый' пример, а реально используемый почти в каждом проекте код.",
+    code: `val notification = NotificationCompat.Builder(context, channelId)
+    .setSmallIcon(R.drawable.ic_notification)
+    .setContentTitle("Заголовок")
+    .setContentText("Текст")
+    .build()`
+  },
+  {
+    id: "pat3", cat: "patterns", q: "Что такое God Object и почему Context в Android — хрестоматийный пример?",
+    what: "God Object (антипаттерн) — класс, который берёт на себя слишком много ответственности и становится центральной точкой связанности всей системы.",
+    key: "Context отвечает одновременно за: доступ к ресурсам (strings, drawables), запуск компонентов (startActivity), доступ к системным сервисам (getSystemService), доступ к файловой системе, темы и стили — это прямое нарушение принципа единственной ответственности (Single Responsibility, S из SOLID). На интервью это частый вопрос 'на засыпку': назвать явное нарушение SRP в самом Android SDK.",
+    example: "Практическое следствие: именно поэтому Context не должен 'протекать' в Domain-слой Clean Architecture — это тянет за собой десяток скрытых ответственностей и рушит тестируемость бизнес-логики.",
+    code: null
+  },
+
+  // ---------------- АРХИТЕКТУРНЫЕ ПАТТЕРНЫ (доп.) ----------------
+  {
+    id: "ar3", cat: "arch", q: "Зачем вообще нужен UseCase, если можно вызывать репозиторий прямо из ViewModel?",
+    what: "UseCase (он же Interactor) — класс, инкапсулирующий один конкретный сценарий бизнес-логики (например, 'получить погоду и сохранить в избранное').",
+    key: "Прямой вызов репозитория из ViewModel работает для тривиальных случаев (просто отдать данные), но UseCase становится незаменим, когда бизнес-логика требует координации НЕСКОЛЬКИХ репозиториев или содержит правила, не относящиеся ни к одному конкретному источнику данных (например, 'если кэш старше часа — обновить, иначе отдать локальные данные'). Без UseCase эта логика либо дублируется по разным ViewModel, либо утекает в репозиторий, размывая его ответственность.",
+    example: "Хороший тест на необходимость UseCase: если сценарий использует больше одного репозитория, или его логику нужно переиспользовать на 2+ экранах — заводи UseCase. Если это тривиальный прямой проброс одного метода — UseCase действительно будет лишним 'перекладчиком', как и подмечали интервьюеры на некоторых собесах.",
+    code: `class GetWeatherWithFavoriteStatusUseCase(
+    private val weatherRepo: WeatherRepository,
+    private val favoritesRepo: FavoritesRepository // координация двух источников
+) {
+    suspend operator fun invoke(city: String): WeatherUi {
+        val weather = weatherRepo.getWeather(city)
+        val isFavorite = favoritesRepo.isFavorite(city)
+        return weather.toUi(isFavorite)
+    }
+}`
+  },
+
+  // ---------------- ЧИСТЫЙ КОД ----------------
+  {
+    id: "clean1", cat: "cleancode", q: "Почему возврат MutableList наружу из класса считается плохой практикой?",
+    what: "Инкапсуляция — сокрытие внутреннего состояния класса от внешнего изменения не через его же публичный API.",
+    key: "Если публичный геттер отдаёт MutableList, любой внешний код может вызвать .add()/.clear() и незаметно изменить внутреннее состояние объекта в обход всей его логики (валидации, уведомлений об изменении и т.д.) — класс теряет контроль над собственными инвариантами. Решение: возвращать наружу иммутабельный List (сужение типа, не обязательно копирование), а мутировать список только внутренними методами класса.",
+    example: "Второе следствие того же принципа — предпочитать val вместо var для полей: val не даёт переприсвоить саму ссылку на список целиком в обход контролируемых методов изменения.",
+    code: `class Cart {
+    private val _items = mutableListOf<Item>()
+    val items: List<Item> get() = _items // наружу — только для чтения
+
+    fun addItem(item: Item) { _items.add(item) } // изменение только через контролируемый метод
+}`
+  },
+  {
+    id: "clean2", cat: "cleancode", q: "DRY, KISS, YAGNI — в чём разница между этими принципами простыми словами?",
+    what: "Три взаимодополняющих, но разных принципа простоты кода.",
+    key: "DRY (Don't Repeat Yourself) — не дублировать одну и ту же логику в нескольких местах, а вынести в одно переиспользуемое место. KISS (Keep It Simple, Stupid) — предпочитать самое простое решение задачи из работающих, не усложнять ради 'красоты' архитектуры. YAGNI (You Aren't Gonna Need It) — не добавлять функциональность 'про запас, вдруг понадобится в будущем', если она не нужна прямо сейчас — это неоправданно усложняет код и увеличивает площадь для багов.",
+    example: "Частый разбираемый на собесах кейс с YAGNI — кандидат предлагает оставить избыточный метод 'на будущее', и интервьюер просит обосновать, почему это не создаёт лишнюю сложность прямо сейчас без реальной необходимости.",
+    code: null
+  },
+
+  // ---------------- ALGORITHMS (доп.) ----------------
+  {
+    id: "al2", cat: "algo", q: "Как найти недостающее число в массиве за O(n), не используя сортировку?",
+    what: "Задача: дан массив 1..N, из него убрали одно число, нужно найти какое, не прибегая к O(n log n) сортировке.",
+    key: "Оптимальное решение — воспользоваться формулой суммы арифметической прогрессии: сумма чисел от 1 до N равна N*(N+1)/2. Считаем фактическую сумму элементов массива и вычитаем её из ожидаемой суммы — разница и есть недостающее число. Сложность O(n) по времени и O(1) по памяти, вместо O(n log n) у сортировки.",
+    example: "Альтернатива при рисках переполнения (overflow) для очень больших N — использовать XOR всех чисел от 1 до N, XOR-нутый с XOR всех элементов массива (свойство XOR: a^a=0 сокращает совпадающие пары).",
+    code: `fun findMissingNumber(nums: IntArray, n: Int): Int {
+    val expectedSum = n * (n + 1) / 2
+    val actualSum = nums.sum()
+    return expectedSum - actualSum
+}`
+  },
+
+  // ---------------- ROOM + SQL ----------------
+  {
+    id: "room1", cat: "room", q: "Как проводить миграции Room при изменении структуры таблиц?",
+    what: "Миграция (Migration) — описание того, как преобразовать структуру базы данных со старой версии схемы на новую, не потеряв уже сохранённые пользовательские данные.",
+    key: "Room привязан к номеру version в аннотации @Database. При любом изменении Entity (новое поле, новая таблица, изменение типа колонки) нужно повысить version и явно написать Migration с SQL-командами перехода (ALTER TABLE и т.д.) — иначе Room выбросит исключение при старте (или, при fallbackToDestructiveMigration(), просто удалит всю базу — приемлемо только для кэша, не для пользовательских данных).",
+    example: "Частый вопрос 'на засыпку' — что будет, если забыть написать миграцию и не указать fallbackToDestructiveMigration(): приложение крашится при первом обращении к базе после обновления.",
+    code: `val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE users ADD COLUMN email TEXT DEFAULT NULL")
+    }
+}
+
+Room.databaseBuilder(context, AppDatabase::class.java, "app.db")
+    .addMigrations(MIGRATION_1_2)
+    .build()`
+  },
+  {
+    id: "room2", cat: "room", q: "В чём разница между @Embedded, @Relation и TypeConverter в Room?",
+    what: "Три разных механизма Room для работы со сложными/связанными данными (подробно связано с карточкой в Android SDK, но с фокусом именно на выбор инструмента).",
+    key: "@Embedded — просто разворачивает поля 'своего' объекта в колонки той же таблицы, без создания связи между таблицами. @Relation — говорит Room собрать граф из ДВУХ РАЗНЫХ таблиц (реальная связь через внешний ключ), выполняя дополнительный запрос под капотом. TypeConverter — нужен, когда тип поля в принципе не поддерживается SQLite напрямую (например, LocalDateTime, List<String>, Uri) — конвертер учит Room превращать такой тип в примитив (обычно String/Long) для хранения и обратно при чтении.",
+    example: "Практическое правило выбора: @Embedded — для 'своих' data-классов без отдельной таблицы. @Relation — когда данные реально хранятся в разных таблицах. TypeConverter — для сторонних типов, которые нельзя аннотировать напрямую.",
+    code: `class Converters {
+    @TypeConverter
+    fun fromTimestamp(value: Long?): LocalDateTime? =
+        value?.let { LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) }
+
+    @TypeConverter
+    fun toTimestamp(date: LocalDateTime?): Long? = date?.toEpochSecond(ZoneOffset.UTC)
+}`
+  },
+
+  // ---------------- RETROFIT + REST API ----------------
+  {
+    id: "retro1", cat: "retrofit", q: "Как добавить токен авторизации сразу ко всем сетевым запросам (например, если их уже 50+)?",
+    what: "OkHttp Interceptor — компонент, который перехватывает каждый HTTP-запрос/ответ в цепочке OkHttp ДО того, как он реально уйдёт в сеть (или после того, как пришёл ответ), и может его модифицировать.",
+    key: "Вместо того чтобы руками добавлять заголовок Authorization в каждый из 50+ методов Retrofit-интерфейса, пишется один AuthInterceptor, который добавляется в OkHttpClient — и применяется автоматически ко ВСЕМ запросам, проходящим через этот клиент, без изменения кода самих API-методов.",
+    example: "Это прямое применение принципа DRY — общая для всех запросов логика (заголовок токена) написана один раз в одном месте, а не дублируется по каждому эндпоинту.",
+    code: `class AuthInterceptor(private val tokenProvider: () -> String) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request = chain.request().newBuilder()
+            .addHeader("Authorization", "Bearer \${tokenProvider()}")
+            .build()
+        return chain.proceed(request)
+    }
+}
+
+val client = OkHttpClient.Builder()
+    .addInterceptor(AuthInterceptor { tokenStorage.getToken() })
+    .build()`
+  },
+  {
+    id: "retro2", cat: "retrofit", q: "Как правильно описать метод Retrofit-интерфейса с корутинами?",
+    what: "Retrofit-интерфейс описывает эндпоинты декларативно через аннотации (@GET, @POST, @Path, @Query, @Body), а Retrofit генерирует реализацию под капотом.",
+    key: "С корутинами метод объявляется как suspend fun и возвращает напрямую доменный/DTO-тип (не Call<T>) — Retrofit сам оборачивает вызов в корутино-совместимый adapter. Ошибки сети (таймаут, отсутствие интернета) выбрасываются как обычные исключения и ловятся через try/catch вокруг suspend-вызова, а не через отдельный callback, как было в старом Call-based подходе.",
+    example: "Если нужен доступ к метаданным ответа (заголовки, HTTP-код), возвращают Response<T> вместо голого T — тогда суспенд-функция не бросает исключение на HTTP-ошибках 4xx/5xx, а явно возвращает их в response.code().",
+    code: `interface WeatherApi {
+    @GET("weather/{city}")
+    suspend fun getWeather(@Path("city") city: String): WeatherDto
+
+    @GET("weather/{city}")
+    suspend fun getWeatherWithMeta(@Path("city") city: String): Response<WeatherDto>
+}`
+  },
+
+  // ---------------- GIT ----------------
+  {
+    id: "git1", cat: "git", q: "merge vs rebase — в чём разница и когда что использовать?",
+    what: "Обе команды применяются, чтобы 'подтянуть' изменения из одной ветки в другую, но по-разному переписывают историю коммитов.",
+    key: "merge создаёт новый 'коммит слияния' (merge commit) с двумя родителями, сохраняя реальную историю разработки как она была (включая параллельные ветки) — безопаснее для командной работы, но история выглядит более 'запутанной'. rebase переносит коммиты твоей ветки поверх нового базового коммита, переписывая их хэши — история становится линейной и чище, но НЕЛЬЗЯ делать rebase уже запушенных публичных веток, которые кто-то ещё использует, — переписанная история сломает синхронизацию у коллег.",
+    example: "Практическое правило: rebase — для своей локальной feature-ветки перед созданием Pull Request (чтобы история была чистой); merge — для интеграции в общие ветки (develop, main), которые уже расшарены с командой.",
+    code: `# Обновить свою ветку изменениями из develop, сохранив линейную историю
+git checkout feature/my-branch
+git rebase develop
+
+# Влить готовую фичу в develop с сохранением merge-коммита
+git checkout develop
+git merge feature/my-branch`
+  },
+  {
+    id: "git2", cat: "git", q: "Что такое Gitflow и чем он отличается от Trunk-Based Development?",
+    what: "Оба — модели ветвления (branching strategy), описывающие, как команда организует параллельную разработку в Git.",
+    key: "Gitflow — долгоживущие ветки main (только релизы) и develop (текущая разработка) + отдельные feature/release/hotfix-ветки, которые в итоге вливаются в develop и main. Подходит большим командам с редкими релизами. Trunk-Based Development — почти все изменения идут напрямую (короткоживущими ветками) в единственную основную ветку (trunk/main), а незавершённые фичи скрываются за feature-тоглами (feature flags), а не долгоживущими ветками. Подходит командам с частыми релизами и CI/CD.",
+    example: "В разобранных транскриптах интервью банки с редкими релизами (раз в месяц) чаще держатся за Gitflow, а команды с частыми деплоями (несколько раз в неделю) — за Trunk-Based + feature-тоглы.",
+    code: null
+  },
+
+  // ---------------- TESTING (доп.) ----------------
+  {
+    id: "t4", cat: "testing", q: "Mock vs Fake — в чём разница в тестах?",
+    what: "Оба — способы подменить реальную зависимость в тесте, чтобы изолировать тестируемый класс от её реального поведения.",
+    key: "Mock (через библиотеку типа Mockito) — 'пустышка', которая ничего не делает сама по себе, пока ты явно не настроишь через whenever/verify, что она должна вернуть на конкретный вызов; хорош для проверки факта вызова метода. Fake — реальная, но упрощённая рабочая реализация интерфейса (например, WeatherRepository, хранящий данные в обычном HashMap в памяти вместо реальной сети/БД); ведёт себя как настоящая логика, просто без внешних зависимостей.",
+    example: "Fake обычно предпочтительнее для тестирования сложного поведения (несколько последовательных вызовов с разным состоянием), а Mock — для простой проверки 'этот метод точно был вызван ровно один раз с такими параметрами'.",
+    code: `// Fake — реальная упрощённая логика
+class FakeWeatherRepository : WeatherRepository {
+    private val storage = mutableMapOf<String, Weather>()
+    override suspend fun getWeather(city: String) =
+        storage[city] ?: throw NoSuchElementException()
+    fun addWeather(city: String, weather: Weather) { storage[city] = weather }
+}
+
+// Mock — пустышка с настроенным поведением на конкретный вызов
+val mockRepo = mock<WeatherRepository>()
+whenever(mockRepo.getWeather("Rostov")).thenReturn(fakeWeather)`
+  },
+
+  // ---------------- KOTLIN (доп.) ----------------
+  {
+    id: "k4", cat: "kotlin", q: "Как работают SAM-conversions?",
+    what: "SAM (Single Abstract Method) conversion — механизм, позволяющий передавать лямбду напрямую вместо интерфейса с ОДНИМ абстрактным методом, без явного создания анонимной реализации этого интерфейса.",
+    key: "Компилятор сам оборачивает лямбду в подходящую реализацию интерфейса. Это критично для Java-интероперабельности: многие Android/Java API (например, `View.OnClickListener`, `Runnable`) — это функциональные Java-интерфейсы с одним методом, и Kotlin позволяет передать в них лямбду напрямую вместо `object : OnClickListener { override fun onClick(v: View) {...} }`.",
+    example: "Для собственных Kotlin-интерфейсов SAM-conversion работает только если явно пометить интерфейс как `fun interface` (начиная с Kotlin 1.4) — без этой пометки лямбду напрямую передать не получится.",
+    code: `// Java-интерфейс OnClickListener имеет один метод — SAM-conversion работает из коробки
+button.setOnClickListener { view -> /* ... */ }
+
+// Свой функциональный интерфейс — нужно fun interface
+fun interface Validator { fun validate(input: String): Boolean }
+val validator = Validator { it.isNotEmpty() } // тоже SAM-conversion`
+  },
+
+  // ---------------- COROUTINES (доп.) ----------------
+  {
+    id: "c5", cat: "coroutines", q: "Что такое Channel и Actor в корутинах, и когда нужен кастомный Dispatcher?",
+    what: "Channel — примитив для передачи потока значений МЕЖДУ разными корутинами (аналог очереди, но suspend-совместимый — send/receive приостанавливают корутину вместо блокировки потока). Actor — паттерн поверх Channel: корутина с собственным приватным состоянием, к которому обращаются только через сообщения в канал, что исключает гонки данных без явных локов.",
+    key: "Кастомный диспетчер создаётся оборачиванием обычного `java.util.concurrent.Executor` через `.asCoroutineDispatcher()` — нужен, когда требуется гарантированно последовательное выполнение на одном выделенном потоке (например, все операции с платежами должны идти строго по очереди, а не на общем пуле Dispatchers.IO).",
+    example: "Actor — по сути официальная альтернатива synchronized/Mutex для защиты изменяемого состояния: вместо блокировки все изменения идут последовательно через единственный поток, читающий сообщения из канала.",
+    code: `val paymentDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+
+val counterActor = CoroutineScope(Dispatchers.Default).actor<Int> {
+    var counter = 0
+    for (delta in channel) { counter += delta } // строго последовательно, без гонок
+}`
+  },
+
+  // ---------------- FLOW (доп.) ----------------
+  {
+    id: "fl3", cat: "flow", q: "Что такое Backpressure и как его решать в Flow (buffer, conflate, collectLatest)?",
+    what: "Backpressure — ситуация, когда источник данных (emitter) генерирует значения быстрее, чем подписчик (collector) успевает их обработать.",
+    key: "buffer() — копит 'лишние' значения в очереди, чтобы emitter не ждал collector (полезно, если важно не потерять ни одного значения). conflate() — если collector не успевает, пропускает промежуточные значения и оставляет только последнее (полезно для быстро меняющихся данных типа позиции скролла). collectLatest() — при поступлении нового значения ОТМЕНЯЕТ ещё не завершённую обработку предыдущего и начинает обработку нового.",
+    example: "conflate — для UI-состояния, где важен только актуальный снимок (progress bar). collectLatest — для поиска-по-мере-набора-текста (debounce-подобное поведение, где предыдущий 'ещё не завершённый' сетевой запрос нужно отменить при новом вводе).",
+    code: `searchQueryFlow
+    .collectLatest { query -> // отменит предыдущий поиск, если пришёл новый query
+        val results = searchApi.search(query)
+        updateUi(results)
+    }`
+  },
+
+  // ---------------- ANDROID SDK (доп. 2) ----------------
+  {
+    id: "a7", cat: "android", q: "Deep Link vs App Link vs Deferred Deep Link — в чём разница?",
+    what: "Все три механизма открывают конкретный экран приложения по ссылке, но отличаются уровнем доверия системы и поведением при отсутствии приложения.",
+    key: "Deep Link — обычная кастомная схема (myapp://profile/42) через intent-filter; система не проверяет, что ссылка действительно принадлежит владельцу приложения, поэтому её может 'перехватить' любое другое приложение с таким же intent-filter. App Link — верифицированный Android системой https-адрес (через Digital Asset Links файл на сервере), который гарантированно откроет именно твоё приложение, если оно установлено, минуя диалог выбора приложения. Deferred Deep Link — ссылка, которая срабатывает ПОСЛЕ установки приложения из стора (человек кликнул по ссылке, у него не было приложения, установил его — и после первого запуска приложение всё равно 'помнит', на какой экран его вели).",
+    example: "Deferred Deep Link обычно реализуют через сторонние SDK (Firebase Dynamic Links и аналоги), которые прокидывают параметр перехода через referrer установки из Google Play.",
+    code: null
+  },
+  {
+    id: "a8", cat: "android", q: "Что происходит в системе, когда пользователь кликает на иконку приложения (запуск от Zygote до onCreate)?",
+    what: "Запуск приложения — это не 'создание процесса с нуля', а форк (fork) уже существующего специального процесса-шаблона Zygote, который Android держит постоянно запущенным именно для быстрого старта новых приложений.",
+    key: "Порядок: 1) Launcher посылает системе Intent на запуск; 2) Activity Manager Service (AMS) просит Zygote сделать fork — это гораздо быстрее полной инициализации новой Dalvik/ART-виртуальной машины с нуля, так как Zygote уже 'прогрет' и содержит предзагруженные системные классы и ресурсы; 3) в новом форкнутом процессе создаётся объект Application и вызывается Application.onCreate(); 4) AMS запускает нужную Activity через её конструктор и жизненный цикл (onCreate → onStart → onResume).",
+    example: "Именно поэтому тяжёлая логика в Application.onCreate() (инициализация тяжёлых SDK) напрямую увеличивает время холодного старта приложения — это самый первый код, который реально выполняется в новом процессе.",
+    code: null
+  },
+  {
+    id: "a9", cat: "android", q: "Чем отличаются Build Type, Product Flavor и Build Variant?",
+    what: "Три связанных, но разных понятия системы сборки Gradle для Android.",
+    key: "Build Type — техническая конфигурация сборки (debug/release: включён ли ProGuard, подпись, debuggable). Product Flavor — бизнес-вариант приложения с разным контентом/поведением при том же коде (например, 'free' и 'paid' версии, или разные бренды из одной кодовой базы). Build Variant — конкретная комбинация Flavor × Build Type, которая реально собирается (например, freeDebug, paidRelease) — именно её видно в выпадающем списке Build Variants в Android Studio.",
+    example: "Flavor Dimensions нужны, когда у тебя два независимых измерения флейворов одновременно (например, 'free/paid' И 'brandA/brandB') — тогда Gradle комбинирует их по осям, а не просто списком.",
+    code: null
+  },
+
+  // ---------------- ВЬЮ XML (доп.) ----------------
+  {
+    id: "vx4", cat: "viewxml", q: "Как touch-событие доходит до нужной View (dispatchTouchEvent vs onInterceptTouchEvent)?",
+    what: "Touch-событие (MotionEvent) проходит по иерархии View сверху вниз (от родителя к самому глубокому дочернему элементу под пальцем), и на каждом уровне у ViewGroup есть шанс либо пропустить событие дальше, либо перехватить его себе.",
+    key: "dispatchTouchEvent() — точка входа события в View/ViewGroup, решает, кому передать обработку. onInterceptTouchEvent() — есть только у ViewGroup, вызывается перед тем, как событие уйдёт к дочерним элементам; если вернуть true, ViewGroup 'забирает' событие себе, и дочерние View его больше не получат. onTouchEvent() — финальная обработка события конкретной View.",
+    example: "Классический пример использования onInterceptTouchEvent() — SwipeRefreshLayout или ViewPager: родитель должен 'перехватить' горизонтальный свайп для смены страницы, даже если внутри находится кликабельная кнопка.",
+    code: null
+  },
+
+  // ---------------- DAGGER (доп. 2) ----------------
+  {
+    id: "d5", cat: "di", q: "Что такое Composition Root и Dependency Graph?",
+    what: "Composition Root — единственное место в приложении, где происходит реальная 'сборка' (wiring) всех зависимостей друг с другом — то есть где решается, какая конкретная реализация подставляется под каждый интерфейс.",
+    key: "Dependency Graph — это визуальное/концептуальное представление всех связей между зависимостями (кто от кого зависит) во всём приложении; Dagger буквально генерирует этот граф на этапе компиляции и падает с ошибкой компиляции, если граф не может быть построен (например, забыли забиндить интерфейс). Composition Root не должен быть размазан по всему коду — если конкретные реализации 'протекают' в бизнес-логику, это нарушает Dependency Inversion.",
+    example: "В приложении с Dagger/Hilt Composition Root — это фактически совокупность всех @Module-классов; в Manual DI (без библиотек) — это обычно единственный класс-контейнер, который создаётся в Application.onCreate().",
+    code: null
+  },
+
+  // ---------------- АРХИТЕКТУРНЫЕ ПАТТЕРНЫ (доп. 2) ----------------
+  {
+    id: "ar4", cat: "arch", q: "UI State vs UI Event — почему нельзя хранить навигацию как обычное состояние?",
+    what: "UI State — то, что описывает ТЕКУЩУЮ длительную ситуацию на экране (загрузка идёт / данные показаны / ошибка) и должно быть доступно в любой момент, даже после пересоздания экрана. UI Event — разовое действие (показать Toast, перейти на другой экран), которое должно произойти РОВНО один раз.",
+    key: "Если хранить событие навигации в State (например, StateFlow), при пересоздании подписчика (поворот экрана) StateFlow отдаст своё последнее значение заново — и навигация случайно сработает повторно. Единый источник истины (Single Source of Truth) для состояния не означает, что разовые события нужно хранить тем же способом — для них нужен отдельный механизм с семантикой 'потребили один раз и забыли' (SharedFlow с replay=0, или Channel).",
+    example: "Признак бага 'навигация происходит повторно при повороте экрана' почти всегда означает, что событие навигации ошибочно хранится как персистентное состояние вместо одноразового события.",
+    code: null
+  },
+  {
+    id: "ar5", cat: "arch", q: "DTO vs Domain Model — зачем нужны два разных объекта для одних и тех же данных?",
+    what: "DTO (Data Transfer Object) — 'грязный' объект, повторяющий структуру ответа сервера (JSON) один в один, со всеми его особенностями (nullable-поля 'на всякий случай', странный нейминг бэкенда, версионные костыли API). Domain Model — 'чистый' объект, удобный для бизнес-логики приложения, не привязанный к конкретному формату конкретного API.",
+    key: "Без разделения любое изменение контракта бэкенда (переименовали поле, поменяли формат даты) вынуждает переписывать код по всему приложению, включая UI. С разделением меняется только маппер (DTO → Domain) в одном месте, а вся остальная кодовая база продолжает работать с неизменной доменной моделью. Это прямое применение Single Responsibility — DTO отвечает за сериализацию, Domain Model — за бизнес-смысл.",
+    example: "Если в UI/ViewModel напрямую используется класс с суффиксом `Dto` или `Response` — это тревожный звоночек: слой представления должен знать только о Domain-модели.",
+    code: `data class UserDto(val usr_nm: String?, val brth_dt: String?) // прямая копия ответа сервера
+data class User(val name: String, val birthDate: LocalDate)      // чистая доменная модель
+
+fun UserDto.toDomain(): User = User(
+    name = usr_nm.orEmpty(),
+    birthDate = LocalDate.parse(brth_dt ?: "1970-01-01")
+)`
+  },
+
+  // ---------------- JAVA (доп.) ----------------
+  {
+    id: "j4", cat: "java", q: "Когда использовать SparseArray/ArrayMap вместо HashMap на Android?",
+    what: "SparseArray и ArrayMap — оптимизированные Android-специфичные коллекции, предложенные как более экономная по памяти замена HashMap для определённых сценариев.",
+    key: "HashMap для каждой пары ключ-значение создаёт отдельный объект-обёртку (Entry) плюс тратит память на массив bucket'ов, что при малом количестве элементов — избыточные накладные расходы. SparseArray/ArrayMap хранят данные в простых параллельных массивах и используют бинарный поиск вместо хэширования — экономят память, но проигрывают в скорости на больших объёмах (O(log n) вместо O(1) у HashMap). Правило: для малых коллекций (обычно < 1000 элементов) на мобильном устройстве экономия памяти важнее — используй ArrayMap/SparseArray; для больших коллекций или частых операций — HashMap.",
+    example: "SparseArray дополнительно избегает автобоксинга Integer-ключей (принимает примитивный int напрямую) — ещё один источник экономии памяти по сравнению с HashMap<Integer, V>.",
+    code: null
+  },
+
+  // ---------------- JAVA (доп. 2) ----------------
+  {
+    id: "j5", cat: "java", q: "Что такое WeakHashMap и когда его применять?",
+    what: "WeakHashMap — реализация Map, которая хранит КЛЮЧИ через слабые ссылки¹ (WeakReference) вместо обычных (Strong) ссылок.",
+    key: "Если на ключ больше нигде в программе нет обычной ссылки — сборщик мусора вправе удалить объект-ключ, и запись автоматически исчезнет из WeakHashMap сама, без ручного вызова remove(). Обычный HashMap так не умеет: пока запись лежит в мапе, она держит ключ живым независимо от того, нужен ли он где-то ещё в программе.",
+    example: "Практический кейс — кэш 'привязанный к жизни объекта': например, храним доп. метаданные для View, пока эта View жива; как только View уничтожается и больше ниоткуда не используется, запись в WeakHashMap исчезает сама, без утечки памяти.",
+    code: `val metadataCache = WeakHashMap<View, ViewMetadata>()
+metadataCache[someView] = ViewMetadata(...)
+// Когда someView больше нигде не используется — GC соберёт её,
+// и запись в metadataCache исчезнет сама собой`
+  },
+  {
+    id: "j6", cat: "java", q: "Что такое ThreadLocal и зачем он нужен?",
+    what: "ThreadLocal — механизм, позволяющий каждому потоку иметь СВОЮ собственную независимую копию переменной, даже если все потоки обращаются к одному и тому же объекту ThreadLocal.",
+    key: "Это способ избежать синхронизации в принципе, а не бороться с гонкой данных через locks — если у каждого потока своя копия, гонки просто не может возникнуть, потому что потоки не делят одно и то же значение.",
+    example: "Классический пример — SimpleDateFormat в старом Java не потокобезопасен (мутирует внутреннее состояние при parse/format), но через ThreadLocal каждый поток получает свой экземпляр форматтера без блокировок.",
+    code: `val threadLocalId = ThreadLocal.withInitial { Thread.currentThread().id }
+// Каждый поток при обращении к threadLocalId.get() получит СВОЁ значение`
+  },
+  {
+    id: "j7", cat: "java", q: "ReentrantLock, CountDownLatch, CyclicBarrier — чем отличаются друг от друга?",
+    what: "Три разных примитива синхронизации из пакета java.util.concurrent для разных сценариев координации потоков.",
+    key: "ReentrantLock — более гибкая альтернатива synchronized: можно попытаться захватить лок с таймаутом (tryLock), можно прервать ожидание, поддерживает несколько условий ожидания (Condition). CountDownLatch — 'счётчик обратного отсчёта', одноразовый: один или несколько потоков ждут, пока другие N потоков не вызовут countDown() ровно N раз (например, главный поток ждёт, пока 3 параллельные загрузки не завершатся). CyclicBarrier — похож на CountDownLatch, но многоразовый: группа потоков взаимно ждёт друг друга в определённой точке и потом все вместе продолжают выполнение (например, несколько потоков параллельно считают часть большой задачи и должны 'сойтись' перед следующим этапом).",
+    example: "Ключевое отличие CountDownLatch от CyclicBarrier: CountDownLatch используется один раз и не может быть 'сброшен', CyclicBarrier можно переиспользовать многократно для повторяющихся фаз вычислений.",
+    code: `val latch = CountDownLatch(3)
+repeat(3) {
+    thread { loadPart(it); latch.countDown() }
+}
+latch.await() // главный поток дождётся всех трёх countDown()`
+  },
+  {
+    id: "j8", cat: "java", q: "Что такое Happens-Before в Java Memory Model?",
+    what: "Happens-Before — формальное правило Java Memory Model (JMM), гарантирующее, что если операция A 'happens-before' операции B, то результат A гарантированно виден потоку, выполняющему B.",
+    key: "Без такой гарантии компилятор/процессор вправе переупорядочивать инструкции и кэшировать значения в регистрах, и другой поток может увидеть 'устаревшее' значение переменной. synchronized, volatile и запуск/присоединение потока (Thread.start()/join()) — все создают отношение happens-before между операциями до и после них.",
+    example: "Именно happens-before объясняет, ПОЧЕМУ volatile вообще работает: запись в volatile-переменную happens-before любого последующего чтения этой же переменной другим потоком — то есть JMM формально гарантирует видимость, а не просто 'на практике так получается'.",
+    code: null
+  },
+
+  // ---------------- COMPOSE (доп.) ----------------
+  {
+    id: "cx4", cat: "compose", q: "Что такое State Hoisting (подъём состояния) в Compose?",
+    what: "State Hoisting — паттерн, при котором Composable-функция НЕ хранит состояние сама внутри себя, а принимает текущее значение и колбэк для его изменения через параметры — то есть состояние 'поднимается' на уровень выше, к вызывающему коду.",
+    key: "Это прямое применение принципа единственной ответственности (SRP) — Composable отвечает только за отображение и передачу событий наверх, а решение 'как именно меняется состояние' остаётся у вызывающего кода (обычно ViewModel). Побочный эффект — компонент становится stateless и намного проще переиспользуется и тестируется: чтобы протестировать его, не нужен реальный источник состояния, достаточно передать любое значение и заглушку-колбэк.",
+    example: "Признак того, что стоит поднять состояние — если один и тот же Composable в разных местах экрана нужно использовать с разными данными, но сам компонент 'жёстко' хранит своё mutableStateOf внутри.",
+    code: `// Без hoisting — компонент 'владеет' своим состоянием, его сложно переиспользовать
+@Composable
+fun SearchFieldBad() {
+    var text by remember { mutableStateOf("") }
+    TextField(value = text, onValueChange = { text = it })
+}
+
+// С hoisting — состояние поднято наверх, компонент просто отображает и сообщает о событиях
+@Composable
+fun SearchField(text: String, onTextChange: (String) -> Unit) {
+    TextField(value = text, onValueChange = onTextChange)
+}`
+  },
+  {
+    id: "cx5", cat: "compose", q: "produceState и rememberUpdatedState — для чего нужны?",
+    what: "produceState — способ создать Compose State, значение которого асинхронно обновляется корутиной, инкапсулируя логику загрузки прямо внутри самого состояния. rememberUpdatedState — 'запоминает' самое последнее значение переданного параметра/колбэка, даже если долгоживущий эффект (например, LaunchedEffect с ключом Unit) уже был запущен со старым значением.",
+    key: "Проблема, которую решает rememberUpdatedState: если LaunchedEffect(Unit) запущен один раз и не перезапускается, а внутри него используется колбэк, полученный параметром — без rememberUpdatedState эффект будет держать ссылку на СТАРУЮ версию колбэка из первой композиции, даже если снаружи передали новый.",
+    example: "produceState удобен, когда нужно превратить внешний асинхронный источник (например, Flow из другой библиотеки, не имеющей встроенной Compose-интеграции) в обычный Compose State одним вызовом, не создавая отдельный ViewModel.",
+    code: `@Composable
+fun rememberElapsedTime(onTimeout: () -> Unit): State<Int> {
+    val currentOnTimeout by rememberUpdatedState(onTimeout) // всегда актуальный колбэк
+    return produceState(initialValue = 0) {
+        while (true) {
+            delay(1000)
+            value += 1
+            if (value >= 60) { currentOnTimeout(); break }
+        }
+    }
+}`
+  },
+
+  // ---------------- ЧИСТЫЙ КОД (доп.) ----------------
+  {
+    id: "clean3", cat: "cleancode", q: "Покажи все 5 принципов SOLID на одном сквозном Kotlin-примере",
+    what: "SOLID — пять принципов объектно-ориентированного дизайна (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion), которые вместе делают код легче расширять и тестировать без переписывания существующих классов.",
+    key: "S — каждый класс отвечает ровно за одну вещь (EmailValidator валидирует, не отправляет письма). O — новый способ оплаты добавляется НОВЫМ классом, а не правкой существующего if/when. L — любая реализация PaymentMethod должна вести себя предсказуемо, не бросая неожиданных исключений там, где базовый тип этого не делает. I — узкие интерфейсы (Payable) вместо одного 'толстого' с лишними методами. D — PaymentProcessor зависит от интерфейса PaymentMethod, а не от конкретных классов CardPayment/CashPayment.",
+    example: "На собесе часто просят не просто перечислить буквы, а показать, как ИМЕННО текущий класс нарушает принцип и как это исправить — формула 'что это → как нарушается → как исправить' работает и здесь.",
+    code: `// D: зависимость от абстракции, не от реализации
+interface PaymentMethod { fun pay(amount: Int): Boolean }
+
+// O: новый способ оплаты — новый класс, старый код не трогаем
+class CardPayment : PaymentMethod {
+    override fun pay(amount: Int): Boolean = true // логика оплаты картой
+}
+class CashPayment : PaymentMethod {
+    override fun pay(amount: Int): Boolean = true // логика оплаты наличными
+}
+
+// S: единственная ответственность — только оркестрация оплаты
+class PaymentProcessor(private val method: PaymentMethod) {
+    fun process(amount: Int) = method.pay(amount)
+}
+// I: интерфейс узкий, не тянет лишние методы вроде refund() туда, где это не нужно`
+  },
+
+  // ---------------- COLLECTIONS / DATA STRUCTURES (Java, доп.) ----------------
+  {
+    id: "j9", cat: "java", q: "Как HashSet устроен внутри и почему TreeMap хранит элементы отсортированными?",
+    what: "HashSet — на самом деле обёртка НАД HashMap: каждый элемент множества хранится как ключ в скрытой внутренней HashMap, а в качестве значения используется один общий служебный объект-заглушка. TreeMap — реализация Map на основе самобалансирующегося красно-чёрного дерева, поэтому обход элементов всегда идёт в отсортированном по ключу порядке.",
+    key: "Именно поэтому в HashSet нельзя хранить два 'равных по equals' элемента: попытка добавить второй такой же — это попытка вставить в HashMap запись с уже существующим ключом, которая просто не создаёт новую запись (в отличие от HashMap.put(), где значение бы перезаписалось — в HashSet 'перезаписывать' нечего, ключ и есть весь смысл). TreeMap платит за сортировку логарифмической сложностью операций (O(log n)) вместо amortized O(1) у HashMap.",
+    example: "Если на собесе спросят 'как бы ты реализовал Set, если бы его не было в языке' — правильный ответ буквально описывает то, как Java это уже сделала: через Map с фиктивным значением.",
+    code: null
+  },
+
+  // ---------------- SYSTEM DESIGN ----------------
+  {
+    id: "sd1", cat: "sysdesign", q: "Как вообще начать System Design интервью и не утонуть в деталях",
+    what: "System Design интервью для мобильного разработчика — это не про то, чтобы сразу выдать готовую архитектуру, а про то, чтобы показать структурированный ход мысли: как ты сужаешь неопределённую задачу до конкретного плана.",
+    key: "Рабочая структура на 45–60 минут: 1) 2–5 мин знакомство (коротко, без лишнего); 2) 5 мин — сузить масштаб задачи (только клиент с готовым API? клиент + придумать API? реже — ещё и бэкенд); 3) 10–15 мин — сбор требований и высокоуровневая схема; 4) 20–30 мин — детальный разбор одного конкретного компонента по выбору интервьюера; 5) 5 мин — твои вопросы. Первый практический шаг — явно спросить интервьюера, какого масштаба задача, а не додумывать самому.",
+    example: "Хороший сигнал для интервьюера — вслух проговаривать предположения ('я предполагаю, что авторизация уже реализована, правильно?') вместо молчаливых догадок — это и есть то самое 'озвучивай мысли', о котором тебе уже говорили на реальных мок-собесах.",
+    code: null
+  },
+  {
+    id: "sd2", cat: "sysdesign", q: "Как разделить требования на функциональные, нефункциональные и 'вне рамок'",
+    what: "Три категории, которые обязательно нужно явно проговорить перед проектированием, чтобы не спроектировать что-то, чего от тебя не просили (или наоборот — забыть важное).",
+    key: "Функциональные требования — что пользователь может СДЕЛАТЬ (обычно 3–5 самых ценных для бизнеса действий, например 'бесконечная лента', 'лайк', 'открыть детали'). Нефункциональные — как система должна себя вести НЕЗАВИСИМО от конкретной функции (оффлайн-режим, real-time обновления, экономия батареи/трафика). 'Вне рамок' — то, что явно исключается из обсуждения (авторизация, аналитика, навигация), чтобы не тратить время впустую, но при этом показать, что ты в курсе об их существовании.",
+    example: "Пропуск этого шага — частая ошибка кандидатов: без явного разделения интервьюер не понимает, специально ли ты не упомянул авторизацию, или просто забыл о ней.",
+    code: null
+  },
+  {
+    id: "sd3", cat: "sysdesign", q: "Анатомия фича-модульной архитектуры — что входит в Feature API, а что в Impl",
+    what: "Стандартная схема разбиения приложения на независимые фичи-модули для командной разработки.",
+    key: "Feature API — публичный контракт фичи (интерфейсы UseCase, роутер для перехода на экран этой фичи) БЕЗ привязки к конкретному фреймворку или платформе — это тот самый Dependency Inversion (D из SOLID¹): другие модули зависят от абстракции, а не от реализации. Feature Impl — конкретная реализация (Compose/XML экраны, ViewModel, работа с сетью) — подключается только в App-модуле, а не напрямую в других фичах, иначе получаются циклические зависимости между фичами и ломается независимая сборка.",
+    example: "Core-модули (навигация, авторизация, аналитика) — отдельная категория: они не разделяются на api/impl, потому что должны быть доступны всем фичам напрямую как готовый сервис.",
+    code: null
+  },
+  {
+    id: "sd4", cat: "sysdesign", q: "Offset vs Keyset vs Cursor пагинация — что выбрать для ленты",
+    what: "Три способа реализовать постраничную загрузку списка данных с сервера, отличающихся тем, как клиент 'помнит', на чём остановился.",
+    key: "Offset (limit+offset) — проще всего реализовать, но плохо себя ведёт на больших списках: если между запросами добавились новые элементы, сдвигаются позиции старых (page drifting¹ — элементы дублируются или пропускаются). Keyset — использует значение последней загруженной записи (например, дату) вместо номера страницы, работает быстрее на больших объёмах, но требует, чтобы поле сортировки было естественно упорядоченным (timestamp). Cursor — сервер сам кодирует непрозрачный идентификатор позиции (обычно через base64), полностью отвязывая клиента от деталей БД — самый устойчивый к параллельным изменениям вариант, но сложнее в реализации на бэкенде.",
+    example: "Для бесконечной ленты (как в реальном System Design интервью про Twitter/Авито) курсорная пагинация — обычно правильный выбор, потому что лента постоянно меняется, а offset в таких условиях даёт дубли и пропуски.",
+    code: null
+  },
+  {
+    id: "sd5", cat: "sysdesign", q: "Push vs Polling vs SSE vs WebSocket — как выбрать способ real-time обновлений",
+    what: "Разные механизмы доставки 'живых' обновлений с сервера на клиент, с разным балансом простоты, надёжности и накладных расходов.",
+    key: "Push-уведомления — просты, встроены в платформу, но не гарантированы на 100% и могут прийти с задержкой. Long polling — клиент держит соединение открытым, пока сервер не ответит — мгновенно, но дорого по серверным ресурсам. SSE (Server-Sent Events) — однонаправленный поток событий поверх одного HTTP-соединения — хорош, когда обновления идут только от сервера к клиенту. WebSocket — полный дуплекс, нужен, когда клиент тоже должен часто отправлять данные (например, чат).",
+    example: "Частое комбинированное решение на реальных собесах — SSE как основной канал 'живых' обновлений + Push как резервный вариант, если у клиента в моменте нет активного соединения.",
+    code: null
+  },
+  {
+    id: "sd6", cat: "sysdesign", q: "Как разрешать конфликты между локальным и серверным состоянием в offline-first приложении",
+    what: "Проблема возникает, когда пользователь менял данные без интернета на нескольких устройствах, а потом оба устройства одновременно синхронизируются с сервером.",
+    key: "Локальное разрешение — устройство после выхода в сеть само сливает своё состояние с серверным и отправляет итог; просто реализовать, но небезопасно (устройство получает слишком много доверия) и не решает проблему одновременной синхронизации с нескольких устройств. Удалённое разрешение — сервер сам решает конфликт по своей логике, а устройство просто перезаписывает локальное состояние присланным ответом; сложнее на бэкенде, зато не требует обновления клиента при изменении правил разрешения конфликтов.",
+    example: "Для банковских/платёжных операций разрешение конфликтов почти всегда должно быть на сервере — доверять клиентскому устройству финальное решение о состоянии денег недопустимо по соображениям безопасности.",
+    code: null
+  },
+
+  // ---------------- RXJAVA ----------------
+  {
+    id: "rx1", cat: "rxjava", q: "Какие бывают Subjects в RxJava и чем отличаются?",
+    what: "Subject — одновременно и Observable, и Observer: можно и подписаться на него, и вручную эмитить в него значения — это делает его 'мостом' между обычным кодом и реактивным миром.",
+    key: "PublishSubject — отдаёт подписчику только те значения, что были эмитированы ПОСЛЕ подписки (пропущенное до подписки — потеряно). BehaviorSubject — при подписке сразу отдаёт последнее эмитированное значение (или заданное начальное), а затем все последующие — прямой аналог StateFlow в мире корутин. ReplaySubject — запоминает и отдаёт новому подписчику ВСЮ (или ограниченную) историю значений. AsyncSubject — отдаёт только самое последнее значение, и только после явного вызова onComplete().",
+    example: "BehaviorSubject — самый близкий аналог того, как ведёт себя StateFlow (всегда есть 'текущее' значение), а PublishSubject ближе к SharedFlow с replay=0.",
+    code: null
+  },
+  {
+    id: "rx2", cat: "rxjava", q: "Hot vs Cold Observable — и как превратить один в другой",
+    what: "Cold Observable создаёт свой источник данных заново для КАЖДОГО нового подписчика (аналог обычного cold Flow). Hot Observable — один общий источник, существующий независимо от подписчиков, которые просто 'подключаются' к уже идущему потоку.",
+    key: "Превратить cold в hot можно операторами publish() (превращает в ConnectableObservable) + connect() (запускает эмиссию вручную, в нужный момент, а не при первой подписке) — это позволяет нескольким подписчикам разделить один и тот же реальный сетевой запрос вместо того, чтобы каждый вызывал его заново. Обратное превращение (hot → cold) обычно делают через обёртку, которая при каждой новой подписке заново инициирует получение актуального 'снимка' состояния.",
+    example: "Практический кейс: если 3 разных экрана подписываются на один и тот же сетевой Observable без publish()+connect(), сработает 3 РЕАЛЬНЫХ сетевых запроса вместо одного общего — частая причина лишнего сетевого трафика в legacy-коде на RxJava.",
+    code: null
+  },
+  {
+    id: "rx3", cat: "rxjava", q: "subscribeOn vs observeOn в RxJava — куда именно каждый влияет?",
+    what: "Оба меняют поток выполнения, но воздействуют на разные участки цепочки операторов.",
+    key: "subscribeOn задаёт поток, на котором стартует ИСТОЧНИК данных (сам код внутри Observable.create/fromCallable) — если вызвать subscribeOn несколько раз в одной цепочке, реально сработает только тот вызов, что стоит БЛИЖЕ к источнику (самый первый по цепочке снизу вверх). observeOn переключает поток для ВСЕХ операторов, идущих ПОСЛЕ него по цепочке — можно вызывать несколько раз, и каждый вызов реально меняет поток для последующего участка.",
+    example: "Типичная связка: subscribeOn(Schedulers.io()) — чтобы сетевой запрос ушёл в фоновый поток, и observeOn(AndroidSchedulers.mainThread()) перед подпиской — чтобы результат обработался в UI-потоке.",
+    code: `apiService.getUser(id)
+    .subscribeOn(Schedulers.io())       // источник (сетевой запрос) — в IO-потоке
+    .observeOn(AndroidSchedulers.mainThread()) // всё после этой точки — в Main
+    .subscribe { user -> updateUi(user) }`
+  },
+  {
+    id: "rx4", cat: "rxjava", q: "flatMap vs concatMap vs switchMap — в чём разница на практике?",
+    what: "Все три превращают каждый элемент потока в новый Observable и как-то объединяют результаты, но по-разному управляют порядком и конкуренцией.",
+    key: "flatMap — запускает все внутренние Observable ПАРАЛЛЕЛЬНО и мержит результаты по мере готовности, не гарантируя исходный порядок. concatMap — то же самое, но СТРОГО последовательно: ждёт завершения одного внутреннего Observable, прежде чем начать следующий — сохраняет порядок ценой скорости. switchMap — при появлении НОВОГО элемента из исходного потока отменяет ещё не завершившийся предыдущий внутренний Observable и переключается на новый.",
+    example: "switchMap — классический выбор для поиска-по-мере-набора-текста (аналог collectLatest во Flow): новый ввод пользователя должен отменить ещё не пришедший ответ на предыдущий запрос, а не показать устаревший результат поверх нового.",
+    code: null
+  },
+  {
+    id: "rx5", cat: "rxjava", q: "Что такое Backpressure в RxJava и чем Flowable отличается от Observable?",
+    what: "Backpressure — ситуация, когда источник эмитит элементы быстрее, чем подписчик успевает их обработать (тот же концепт, что мы разбирали для Flow, только в мире RxJava).",
+    key: "Observable НЕ поддерживает backpressure вообще — если источник слишком быстрый, элементы просто накапливаются в памяти без ограничений, что может привести к OutOfMemoryError. Flowable — специально спроектирован для потенциально больших/быстрых потоков и поддерживает стратегии backpressure (BUFFER, DROP, LATEST, ERROR) — подписчик может явно сообщить источнику, сколько элементов готов принять за раз через request(n).",
+    example: "Практическое правило: для UI-событий (клики, текстовый ввод) обычно достаточно Observable — там элементов немного. Flowable нужен, когда источник данных потенциально неограниченный и быстрый — например, чтение большого файла построчно или поток событий от сенсора.",
+    code: null
   },
 
   // ---------------- LIFEHACKS ----------------
