@@ -81,6 +81,13 @@ body {
   text-transform: uppercase;
   padding: 0 16px 10px;
 }
+.sidebar-title-secondary {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--green);
+  opacity: .8;
+}
 .tree-item {
   display: flex;
   align-items: center;

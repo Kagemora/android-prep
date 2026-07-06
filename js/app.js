@@ -33,6 +33,17 @@
     "this", "super", "when", "return", "import", "package", "lateinit",
     "lazy", "const", "enum", "typealias", "operator", "infix", "crossinline",
     "noinline", "vararg", "init", "by", "throw", "try", "catch", "finally",
+    // Частые имена функций стандартной библиотеки и API — встречаются как
+    // голые слова без скобок прямо в заголовках вопросов ("map vs mapTo")
+    "map", "mapTo", "fold", "reduce", "filter", "flatMap", "zip", "distinct",
+    "let", "run", "apply", "also", "with", "launch", "async", "await", "join",
+    "delay", "collect", "emit", "flowOn", "debounce", "invalidate",
+    "requestLayout", "equals", "hashCode", "toString", "copy", "Flow",
+    "StateFlow", "SharedFlow", "LiveData", "ViewModel", "Activity", "Fragment",
+    "Context", "Intent", "Bundle", "RecyclerView", "DiffUtil", "ViewHolder",
+    "HashMap", "ArrayList", "LinkedList", "Retrofit", "Room", "Dagger", "Hilt",
+    "Job", "Deferred", "Dispatchers", "Mutex", "Semaphore", "Handler",
+    "Looper", "WorkManager", "Service", "remember", "rememberSaveable",
   ]);
 
   function escapeHtml(str) {
@@ -125,9 +136,22 @@
     return { done, total: qs.length };
   }
 
+  // Категории делятся на два смысловых блока: технические темы и
+  // справочные материалы (лайфхаки/резюме) — второй блок выделен зелёным
+  // и идёт отдельной секцией, отсортированной по алфавиту, как и первый.
+  const META_CAT_IDS = new Set(["lifehacks", "resume"]);
+
   function renderSidebar() {
     sidebarEl.innerHTML = "";
-    CATEGORIES.forEach((cat) => {
+
+    const techCats = CATEGORIES.filter((c) => !META_CAT_IDS.has(c.id))
+      .slice()
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const metaCats = CATEGORIES.filter((c) => META_CAT_IDS.has(c.id))
+      .slice()
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    function renderTreeItem(cat) {
       const item = document.createElement("div");
       item.className = "tree-item" + (cat.id === activeCat ? " active" : "");
       item.dataset.cat = cat.id;
@@ -156,8 +180,18 @@
         render();
       });
 
-      sidebarEl.appendChild(item);
-    });
+      return item;
+    }
+
+    techCats.forEach((cat) => sidebarEl.appendChild(renderTreeItem(cat)));
+
+    if (metaCats.length) {
+      const divider = document.createElement("div");
+      divider.className = "sidebar-title sidebar-title-secondary";
+      divider.textContent = "Справочные материалы";
+      sidebarEl.appendChild(divider);
+      metaCats.forEach((cat) => sidebarEl.appendChild(renderTreeItem(cat)));
+    }
   }
 
   function renderTabs() {
@@ -213,7 +247,7 @@
 
     const text = document.createElement("div");
     text.className = "qtext";
-    text.textContent = q.q;
+    text.innerHTML = renderInlineText(q.q);
 
     const chevron = document.createElement("div");
     chevron.className = "qchevron";
