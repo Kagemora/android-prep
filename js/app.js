@@ -25,6 +25,95 @@
   const overallLabelEl = document.getElementById("overall-label");
   const searchInput = document.getElementById("search-input");
 
+  // ---------- Безопасный рендер текста с авто-подсветкой инлайн-кода ----------
+  const KOTLIN_KEYWORDS = new Set([
+    "val", "var", "fun", "class", "object", "interface", "override", "suspend",
+    "inline", "reified", "sealed", "data", "companion", "private", "public",
+    "protected", "internal", "open", "abstract", "null", "true", "false",
+    "this", "super", "when", "return", "import", "package", "lateinit",
+    "lazy", "const", "enum", "typealias", "operator", "infix", "crossinline",
+    "noinline", "vararg", "init", "by", "throw", "try", "catch", "finally",
+  ]);
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // Находит индекс закрывающей скобки, учитывая вложенность open/close
+  function findMatchingBracket(text, openIndex, openChar, closeChar) {
+    let depth = 0;
+    for (let i = openIndex; i < text.length; i++) {
+      if (text[i] === openChar) depth++;
+      else if (text[i] === closeChar) {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  // Экранирует текст и попутно оборачивает похожие на код фрагменты
+  // (generic-типы, вызовы функций, ключевые слова) в <code class="inline-code">,
+  // чтобы 1) ничего не ломалось от символов < >  2) код в прозе выглядел как код
+  function renderInlineText(text) {
+    if (!text) return "";
+    const identRe = /^[A-Za-z_][A-Za-z0-9_]*/;
+    let out = "";
+    let i = 0;
+    while (i < text.length) {
+      const ch = text[i];
+      if (/[A-Za-z_]/.test(ch)) {
+        let cursor = i;
+        let sawCodeSignal = false;
+        while (cursor < text.length) {
+          const m = identRe.exec(text.slice(cursor));
+          if (!m) break;
+          cursor += m[0].length;
+          if (text[cursor] === "<") {
+            const close = findMatchingBracket(text, cursor, "<", ">");
+            if (close === -1) break;
+            cursor = close + 1;
+            sawCodeSignal = true;
+          }
+          if (text[cursor] === "(") {
+            const close = findMatchingBracket(text, cursor, "(", ")");
+            if (close === -1) break;
+            cursor = close + 1;
+            sawCodeSignal = true;
+            let k = cursor;
+            while (text[k] === " ") k++;
+            if (text[k] === "{") {
+              const closeB = findMatchingBracket(text, k, "{", "}");
+              if (closeB !== -1) cursor = closeB + 1;
+            }
+          }
+          if (text.slice(cursor, cursor + 2) === "::") { cursor += 2; continue; }
+          if (text[cursor] === "." && /[A-Za-z_]/.test(text[cursor + 1] || "")) { cursor += 1; continue; }
+          break;
+        }
+        if (sawCodeSignal && cursor > i) {
+          out += `<code class="inline-code">${escapeHtml(text.slice(i, cursor))}</code>`;
+          i = cursor;
+          continue;
+        }
+        const kw = identRe.exec(text.slice(i));
+        if (kw && KOTLIN_KEYWORDS.has(kw[0])) {
+          out += `<code class="inline-code">${escapeHtml(kw[0])}</code>`;
+          i += kw[0].length;
+          continue;
+        }
+      }
+      out += escapeHtml(ch);
+      i++;
+    }
+    return out;
+  }
+
   function questionsInCat(catId) {
     return QUESTIONS.filter((q) => q.cat === catId);
   }
@@ -144,15 +233,15 @@
 
     const rowWhat = document.createElement("div");
     rowWhat.className = "row what";
-    rowWhat.innerHTML = `<b>Что это</b>${q.what}`;
+    rowWhat.innerHTML = `<b>Что это</b>${renderInlineText(q.what)}`;
 
     const rowKey = document.createElement("div");
     rowKey.className = "row key";
-    rowKey.innerHTML = `<b>Ключевое отличие</b>${q.key}`;
+    rowKey.innerHTML = `<b>Ключевое отличие</b>${renderInlineText(q.key)}`;
 
     const rowExample = document.createElement("div");
     rowExample.className = "row example";
-    rowExample.innerHTML = `<b>Пример / следствие</b>${q.example}`;
+    rowExample.innerHTML = `<b>Пример / следствие</b>${renderInlineText(q.example)}`;
 
     body.appendChild(rowWhat);
     body.appendChild(rowKey);
@@ -160,8 +249,12 @@
 
     if (q.code) {
       const pre = document.createElement("pre");
-      pre.textContent = q.code;
+      const codeEl = document.createElement("code");
+      codeEl.className = "language-kotlin";
+      codeEl.textContent = q.code;
+      pre.appendChild(codeEl);
       body.appendChild(pre);
+      if (window.Prism) Prism.highlightElement(codeEl);
     }
 
     card.appendChild(head);
@@ -178,13 +271,13 @@
 
     const rowWhat = document.createElement("div");
     rowWhat.className = "row what";
-    rowWhat.innerHTML = `<b>Суть</b>${q.what}`;
+    rowWhat.innerHTML = `<b>Суть</b>${renderInlineText(q.what)}`;
     const rowKey = document.createElement("div");
     rowKey.className = "row key";
-    rowKey.innerHTML = `<b>Как применить</b>${q.key}`;
+    rowKey.innerHTML = `<b>Как применить</b>${renderInlineText(q.key)}`;
     const rowExample = document.createElement("div");
     rowExample.className = "row example";
-    rowExample.innerHTML = `<b>Пример</b>${q.example}`;
+    rowExample.innerHTML = `<b>Пример</b>${renderInlineText(q.example)}`;
 
     card.appendChild(rowWhat);
     card.appendChild(rowKey);
