@@ -44,6 +44,8 @@
     "HashMap", "ArrayList", "LinkedList", "Retrofit", "Room", "Dagger", "Hilt",
     "Job", "Deferred", "Dispatchers", "Mutex", "Semaphore", "Handler",
     "Looper", "WorkManager", "Service", "remember", "rememberSaveable",
+    "volatile", "synchronized", "Atomic", "transient", "static", "Bundle",
+    "ViewHolder", "onDraw", "onMeasure", "onLayout", "invalidate",
   ]);
 
   function escapeHtml(str) {
@@ -69,15 +71,42 @@
   }
 
   // Экранирует текст и попутно оборачивает похожие на код фрагменты
-  // (generic-типы, вызовы функций, ключевые слова) в <code class="inline-code">,
-  // чтобы 1) ничего не ломалось от символов < >  2) код в прозе выглядел как код
+  // (generic-типы, вызовы функций, аннотации, ключевые слова) в <code class="inline-code">,
+  // а короткие англоязычные пояснения в скобках вида "(visibility)" — в мягкое
+  // выделение <span class="term-highlight">, чтобы 1) ничего не ломалось от
+  // символов < >  2) код в прозе выглядел как код, но не заглушал текст
   function renderInlineText(text) {
     if (!text) return "";
     const identRe = /^[A-Za-z_][A-Za-z0-9_]*/;
+    const latinGlossRe = /^[A-Za-z][A-Za-z0-9 /\-]*$/;
     let out = "";
     let i = 0;
     while (i < text.length) {
       const ch = text[i];
+
+      // Аннотации вида @Volatile, @Composable — целиком считаем кодом
+      if (ch === "@" && /[A-Za-z_]/.test(text[i + 1] || "")) {
+        const m = identRe.exec(text.slice(i + 1));
+        if (m) {
+          out += `<code class="inline-code">@${escapeHtml(m[0])}</code>`;
+          i += 1 + m[0].length;
+          continue;
+        }
+      }
+
+      // Короткая англоязычная глосса в скобках — мягкое выделение, не код
+      if (ch === "(") {
+        const close = findMatchingBracket(text, i, "(", ")");
+        if (close !== -1) {
+          const inner = text.slice(i + 1, close);
+          if (inner.length > 1 && inner.length <= 40 && latinGlossRe.test(inner)) {
+            out += `(<span class="term-highlight">${escapeHtml(inner)}</span>)`;
+            i = close + 1;
+            continue;
+          }
+        }
+      }
+
       if (/[A-Za-z_]/.test(ch)) {
         let cursor = i;
         let sawCodeSignal = false;
